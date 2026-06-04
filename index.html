@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perpetum — Finanzas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --brand: #7c3aed; --brand-light: #ede9fe; --brand-dark: #5b21b6;
+    --green: #059669; --green-light: #d1fae5;
+    --red: #dc2626; --red-light: #fee2e2;
+    --yellow: #d97706; --yellow-light: #fef3c7;
+    --blue: #2563eb; --blue-light: #dbeafe;
+    --bg: #f5f3ff; --card: #ffffff; --text: #1e1b4b;
+    --muted: #6b7280; --border: #e5e7eb;
+    --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header { background: var(--brand); color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(124,58,237,.3); }
+  header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -.3px; }
+  header span { font-size: .8rem; opacity: .8; margin-left: auto; }
+
+  nav { display: flex; overflow-x: auto; gap: 4px; padding: 12px 16px 0; background: var(--card); border-bottom: 1px solid var(--border); scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav button { flex-shrink: 0; padding: 8px 16px; border: none; background: none; cursor: pointer; font-size: .88rem; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; transition: all .2s; border-radius: 4px 4px 0 0; }
+  nav button.active { color: var(--brand); border-bottom-color: var(--brand); background: var(--brand-light); }
+  nav button:hover:not(.active) { background: var(--bg); }
+
+  main { padding: 20px 16px 80px; max-width: 1100px; margin: 0 auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); border-left: 4px solid var(--brand); }
+  .kpi.green { border-color: var(--green); }
+  .kpi.red { border-color: var(--red); }
+  .kpi.yellow { border-color: var(--yellow); }
+  .kpi.blue { border-color: var(--blue); }
+  .kpi label { font-size: .75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; display: block; margin-bottom: 6px; }
+  .kpi .val { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+  .kpi .val.green { color: var(--green); }
+  .kpi .val.red { color: var(--red); }
+  .kpi .sub { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+
+  .chart-card { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 24px; }
+  .chart-card h3 { font-size: .95rem; margin-bottom: 16px; color: var(--text); }
+  .chart-wrap { position: relative; height: 220px; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .section-header h2 { font-size: 1rem; font-weight: 600; }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters select, .filters input[type=date] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .83rem; background: var(--card); color: var(--text); }
+
+  .table-wrap { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { background: var(--bg); padding: 10px 12px; text-align: left; font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+  .badge.ingreso { background: var(--green-light); color: var(--green); }
+  .badge.egreso { background: var(--red-light); color: var(--red); }
+  .badge.venta { background: var(--brand-light); color: var(--brand); }
+  .badge.implemento { background: var(--yellow-light); color: var(--yellow); }
+  .badge.envio { background: var(--blue-light); color: var(--blue); }
+  .badge.otro { background: var(--border); color: var(--muted); }
+  .amount.pos { color: var(--green); font-weight: 600; }
+  .amount.neg { color: var(--red); font-weight: 600; }
+  .del-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 2px 6px; border-radius: 4px; }
+  .del-btn:hover { background: var(--red-light); color: var(--red); }
+  .empty { padding: 32px; text-align: center; color: var(--muted); font-size: .9rem; }
+
+  .fab { position: fixed; bottom: 24px; right: 20px; background: var(--brand); color: #fff; border: none; border-radius: 50px; padding: 14px 22px; font-size: 1rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(124,58,237,.4); display: flex; align-items: center; gap: 8px; z-index: 50; transition: transform .15s; }
+  .fab:hover { transform: scale(1.05); }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  @media (min-width: 600px) { .modal-overlay { align-items: center; } }
+  .modal { background: var(--card); border-radius: var(--radius) var(--radius) 0 0; padding: 24px 20px; width: 100%; max-width: 480px; animation: slideUp .25s ease; max-height: 90vh; overflow-y: auto; }
+  @media (min-width: 600px) { .modal { border-radius: var(--radius); } }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 18px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .3px; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: .9rem; background: var(--bg); color: var(--text); font-family: inherit; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(124,58,237,.15); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.secondary { background: var(--border); color: var(--text); }
+  .btn:hover { opacity: .88; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%); background: #1e1b4b; color: #fff; padding: 10px 20px; border-radius: 50px; font-size: .85rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  .loading { text-align: center; padding: 32px; color: var(--muted); }
+  .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .table-wrap { overflow-x: auto; }
+    table { min-width: 520px; }
+    .kpi .val { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <rect width="28" height="28" rx="8" fill="rgba(255,255,255,.2)"/>
+    <path d="M8 20 L14 8 L20 20" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10.5 16h7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <h1>Perpetum · Finanzas</h1>
+  <span id="hdr-date"></span>
+</header>
+
+<nav>
+  <button class="active" data-tab="resumen">Resumen</button>
+  <button data-tab="flujo">Flujo de Efectivo</button>
+  <button data-tab="transacciones">Transacciones</button>
+  <button data-tab="implementos">Implementos</button>
+  <button data-tab="envios">Envíos</button>
+</nav>
+
+<main>
+
+  <!-- RESUMEN -->
+  <div class="tab-panel active" id="tab-resumen">
+    <div id="kpi-loading" class="loading"><div class="spinner"></div></div>
+    <div id="kpi-container" style="display:none">
+      <div class="kpi-grid">
+        <div class="kpi green"><label>Ingresos Totales</label><div class="val green" id="k-ingresos">$0</div><div class="sub">Todas las ventas</div></div>
+        <div class="kpi red"><label>Egresos Totales</label><div class="val red" id="k-egresos">$0</div><div class="sub">Gastos registrados</div></div>
+        <div class="kpi yellow"><label>Implementos</label><div class="val" id="k-implementos" style="color:var(--yellow)">$0</div><div class="sub">Insumos comprados</div></div>
+        <div class="kpi blue"><label>Envíos</label><div class="val" id="k-envios" style="color:var(--blue)">$0</div><div class="sub">Costos de envío</div></div>
+        <div class="kpi" id="k-ganancia-card"><label>Ganancia Neta</label><div class="val" id="k-ganancia">$0</div><div class="sub" id="k-margen">Margen 0%</div></div>
+      </div>
+      <div class="chart-card">
+        <h3>Flujo de Efectivo — Últimos 6 meses</h3>
+        <div class="chart-wrap"><canvas id="chart-flujo"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLUJO -->
+  <div class="tab-panel" id="tab-flujo">
+    <div class="chart-card">
+      <h3>Ingresos vs Egresos por Mes</h3>
+      <div class="chart-wrap" style="height:280px"><canvas id="chart-flujo2"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TRANSACCIONES -->
+  <div class="tab-panel" id="tab-transacciones">
+    <div class="section-header"><h2>Transacciones</h2></div>
+    <div class="filters">
+      <select id="filter-type" onchange="loadTransactions()">
+        <option value="">Todos los tipos</option>
+        <option value="ingreso">Ingresos</option>
+        <option value="egreso">Egresos</option>
+      </select>
+      <select id="filter-cat" onchange="loadTransactions()">
+        <option value="">Todas las categorías</option>
+        <option value="venta">Venta</option>
+        <option value="implemento">Implemento</option>
+        <option value="envio">Envío</option>
+        <option value="otro">Otro</option>
+      </select>
+      <input type="date" id="filter-from" onchange="loadTransactions()">
+      <input type="date" id="filter-to" onchange="loadTransactions()">
+    </div>
+    <div class="table-wrap" id="tx-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- IMPLEMENTOS -->
+  <div class="tab-panel" id="tab-implementos">
+    <div class="section-header"><h2>Implementos / Insumos</h2></div>
+    <div class="table-wrap" id="sup-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- ENVÍOS -->
+  <div class="tab-panel" id="tab-envios">
+    <div class="section-header"><h2>Costos de Envío</h2></div>
+    <div class="table-wrap" id="ship-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+</main>
+
+<button class="fab" onclick="openModal()">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Agregar
+</button>
+
+<!-- MODAL TRANSACCIÓN -->
+<div class="modal-overlay" id="modal-tx">
+  <div class="modal">
+    <h3>Nueva Transacción</h3>
+    <div class="form-group"><label>Tipo</label>
+      <select id="tx-type"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
+    </div>
+    <div class="form-group"><label>Categoría</label>
+      <select id="tx-cat"><option value="venta">Venta</option><option value="implemento">Implemento</option><option value="envio">Envío</option><option value="otro">Otro</option></select>
+    </div>
+    <div class="form-group"><label>Descripción</label><input type="text" id="tx-desc" placeholder="Ej: Venta perfume Sauvage 50ml"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto ($)</label><input type="number" id="tx-amount" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="tx-date"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" id="btn-save-tx" onclick="saveTx()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPLEMENTO -->
+<div class="modal-overlay" id="modal-sup">
+  <div class="modal">
+    <h3>Nuevo Implemento / Insumo</h3>
+    <div class="form-group"><label>Nombre del insumo</label><input type="text" id="sup-name" placeholder="Ej: Frasco 50ml, Etiqueta, Caja"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Costo unitario ($)</label><input type="number" id="sup-unit" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label>Cantidad</label><input type="number" id="sup-qty" min="1" value="1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha de compra</label><input type="date" id="sup-date"></div>
+      <div class="form-group"><label>Notas</label><input type="text" id="sup-notes" placeholder="Opcional"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" onclick="saveSupply()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ENVÍO -->
+<div class="modal-overlay" id="modal-ship">
+  <div class="modal">
+    <h3>Nuevo Costo de Envío</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Transportista</label><input type="text" id="ship-carrier" placeholder="Ej: Servientrega"></div>
+      <div class="form-group"><label>Ciudad destino</label><input type="text" id="ship-city" placeholder="Ej: Guayaquil"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Costo ($)</label><input type="number" id="ship-cost" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="ship-date"></div>
+    </div>
+    <div class="form-group"><label>Notas</label><input type="text" id="ship-notes" placeholder="Opcional"></div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" onclick="saveShipping()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase directo ──────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(
+  'https://clamkzclagwjbbbigqgm.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsYW1remNsYWd3amJiYmlncWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MTk3MDAsImV4cCI6MjA5MTM5NTcwMH0.I2ngzeAjcbUOuz8lDm9RxvZt06LCRIUpHfOI_cd0VGw'
+);
+
+// ── Estado ────────────────────────────────────────────────────
+let activeTab = 'resumen';
+let flujoChart = null, flujoChart2 = null, summaryData = null;
+
+document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('es-EC', { weekday:'short', day:'numeric', month:'short' });
+
+// ── Tabs ──────────────────────────────────────────────────────
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    document.getElementById('tab-' + activeTab).classList.add('active');
+    if (activeTab === 'resumen') loadSummary();
+    if (activeTab === 'flujo') loadSummary().then(() => renderFlujo2());
+    if (activeTab === 'transacciones') loadTransactions();
+    if (activeTab === 'implementos') loadSupplies();
+    if (activeTab === 'envios') loadShipping();
+  });
+});
+
+// ── FAB ───────────────────────────────────────────────────────
+function openModal() {
+  const map = { resumen:'modal-tx', flujo:'modal-tx', transacciones:'modal-tx', implementos:'modal-sup', envios:'modal-ship' };
+  const id = map[activeTab] || 'modal-tx';
+  document.getElementById(id).classList.add('open');
+  const today = new Date().toISOString().split('T')[0];
+  document.querySelectorAll(`#${id} input[type=date]`).forEach(f => { if (!f.value) f.value = today; });
+}
+function closeModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(); }));
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+const fmt = v => '$' + Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+// ── RESUMEN ───────────────────────────────────────────────────
+async function loadSummary() {
+  if (summaryData) return summaryData;
+  try {
+    const [{ data: txs }, { data: sups }, { data: ships }] = await Promise.all([
+      db.from('transactions').select('type, category, amount, date'),
+      db.from('supply_costs').select('unit_cost, quantity, purchase_date'),
+      db.from('shipping_costs').select('cost, date'),
+    ]);
+    const totalIngresos   = (txs||[]).filter(t => t.type === 'ingreso').reduce((s,t) => s + +t.amount, 0);
+    const totalEgresos    = (txs||[]).filter(t => t.type === 'egreso').reduce((s,t) => s + +t.amount, 0);
+    const totalImplementos= (sups||[]).reduce((s,t) => s + +t.unit_cost * +t.quantity, 0);
+    const totalEnvios     = (ships||[]).reduce((s,t) => s + +t.cost, 0);
+    const gananciaNeta    = totalIngresos - totalEgresos - totalImplementos - totalEnvios;
+    const margen          = totalIngresos > 0 ? ((gananciaNeta / totalIngresos) * 100).toFixed(1) : 0;
+
+    // Flujo por mes (últimos 6 meses)
+    const meses = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(); d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      meses[key] = { mes: key, ingresos: 0, egresos: 0 };
+    }
+    (txs||[]).forEach(t => {
+      const key = t.date.substring(0,7);
+      if (meses[key]) { if (t.type === 'ingreso') meses[key].ingresos += +t.amount; else meses[key].egresos += +t.amount; }
+    });
+    (sups||[]).forEach(s => { const key = s.purchase_date.substring(0,7); if (meses[key]) meses[key].egresos += +s.unit_cost * +s.quantity; });
+    (ships||[]).forEach(s => { const key = s.date.substring(0,7); if (meses[key]) meses[key].egresos += +s.cost; });
+
+    summaryData = { totalIngresos, totalEgresos, totalImplementos, totalEnvios, gananciaNeta, margen, flujoPorMes: Object.values(meses) };
+    renderKPIs(summaryData);
+    renderFlujo(summaryData);
+    return summaryData;
+  } catch(e) {
+    document.getElementById('kpi-loading').innerHTML = '<p style="color:var(--red);padding:16px">Error conectando con Supabase.</p>';
+  }
+}
+
+function renderKPIs(d) {
+  document.getElementById('kpi-loading').style.display = 'none';
+  document.getElementById('kpi-container').style.display = 'block';
+  document.getElementById('k-ingresos').textContent = fmt(d.totalIngresos);
+  document.getElementById('k-egresos').textContent = fmt(d.totalEgresos);
+  document.getElementById('k-implementos').textContent = fmt(d.totalImplementos);
+  document.getElementById('k-envios').textContent = fmt(d.totalEnvios);
+  const gEl = document.getElementById('k-ganancia');
+  gEl.textContent = fmt(d.gananciaNeta);
+  gEl.className = 'val ' + (d.gananciaNeta >= 0 ? 'green' : 'red');
+  document.getElementById('k-ganancia-card').style.borderColor = d.gananciaNeta >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('k-margen').textContent = `Margen ${d.margen}%`;
+}
+
+function mkLabels(data) {
+  return data.flujoPorMes.map(m => {
+    const [y, mo] = m.mes.split('-');
+    return new Date(y, mo-1).toLocaleDateString('es-EC', { month:'short', year:'2-digit' });
+  });
+}
+
+function renderFlujo(d) {
+  if (flujoChart) flujoChart.destroy();
+  flujoChart = new Chart(document.getElementById('chart-flujo').getContext('2d'), {
+    type: 'bar',
+    data: { labels: mkLabels(d), datasets: [
+      { label:'Ingresos', data: d.flujoPorMes.map(m=>m.ingresos), backgroundColor:'rgba(5,150,105,.7)', borderRadius:6 },
+      { label:'Egresos',  data: d.flujoPorMes.map(m=>m.egresos),  backgroundColor:'rgba(220,38,38,.6)',  borderRadius:6 },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{y:{ticks:{callback:v=>'$'+v}}} }
+  });
+}
+
+function renderFlujo2() {
+  const d = summaryData; if (!d) return;
+  if (flujoChart2) flujoChart2.destroy();
+  flujoChart2 = new Chart(document.getElementById('chart-flujo2').getContext('2d'), {
+    type: 'line',
+    data: { labels: mkLabels(d), datasets: [
+      { label:'Ingresos', data: d.flujoPorMes.map(m=>m.ingresos), borderColor:'rgb(5,150,105)', backgroundColor:'rgba(5,150,105,.1)', tension:.3, fill:true },
+      { label:'Egresos',  data: d.flujoPorMes.map(m=>m.egresos),  borderColor:'rgb(220,38,38)',  backgroundColor:'rgba(220,38,38,.1)',  tension:.3, fill:true },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{y:{ticks:{callback:v=>'$'+v}}} }
+  });
+}
+
+// ── TRANSACCIONES ─────────────────────────────────────────────
+async function loadTransactions() {
+  const wrap = document.getElementById('tx-table-wrap');
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  let q = db.from('transactions').select('*').order('date', { ascending: false });
+  const type = document.getElementById('filter-type').value;
+  const cat  = document.getElementById('filter-cat').value;
+  const from = document.getElementById('filter-from').value;
+  const to   = document.getElementById('filter-to').value;
+  if (type) q = q.eq('type', type);
+  if (cat)  q = q.eq('category', cat);
+  if (from) q = q.gte('date', from);
+  if (to)   q = q.lte('date', to);
+  const { data } = await q;
+  if (!data || !data.length) { wrap.innerHTML = '<div class="empty">Sin transacciones registradas</div>'; return; }
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+    <tbody>${data.map(t => `<tr>
+      <td>${t.date}</td>
+      <td><span class="badge ${t.type}">${t.type}</span></td>
+      <td><span class="badge ${t.category}">${t.category}</span></td>
+      <td>${t.description||'—'}</td>
+      <td class="amount ${t.type==='ingreso'?'pos':'neg'}">${t.type==='ingreso'?'+':'-'}${fmt(t.amount)}</td>
+      <td><button class="del-btn" onclick="deleteTx('${t.id}')">🗑</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function saveTx() {
+  const btn = document.getElementById('btn-save-tx');
+  btn.disabled = true;
+  const body = { type: document.getElementById('tx-type').value, category: document.getElementById('tx-cat').value, description: document.getElementById('tx-desc').value, amount: +document.getElementById('tx-amount').value, date: document.getElementById('tx-date').value };
+  if (!body.amount) { showToast('Ingresa un monto'); btn.disabled=false; return; }
+  const { error } = await db.from('transactions').insert(body);
+  if (error) { showToast('Error: ' + error.message); btn.disabled=false; return; }
+  closeModal(); summaryData = null;
+  document.getElementById('tx-desc').value = '';
+  document.getElementById('tx-amount').value = '';
+  showToast('Transacción guardada ✓');
+  if (activeTab === 'transacciones') loadTransactions();
+  if (activeTab === 'resumen') { document.getElementById('kpi-loading').style.display='block'; document.getElementById('kpi-container').style.display='none'; loadSummary(); }
+  btn.disabled = false;
+}
+
+async function deleteTx(id) {
+  if (!confirm('¿Eliminar esta transacción?')) return;
+  await db.from('transactions').delete().eq('id', id);
+  summaryData = null; loadTransactions(); showToast('Eliminada');
+}
+
+// ── IMPLEMENTOS ───────────────────────────────────────────────
+async function loadSupplies() {
+  const wrap = document.getElementById('sup-table-wrap');
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const { data } = await db.from('supply_costs').select('*').order('purchase_date', { ascending: false });
+  if (!data || !data.length) { wrap.innerHTML = '<div class="empty">Sin implementos registrados</div>'; return; }
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Fecha</th><th>Insumo</th><th>Costo Unit.</th><th>Cantidad</th><th>Total</th><th>Notas</th><th></th></tr></thead>
+    <tbody>${data.map(s => `<tr>
+      <td>${s.purchase_date}</td><td>${s.name}</td><td>${fmt(s.unit_cost)}</td><td>${s.quantity}</td>
+      <td class="amount neg">${fmt(s.unit_cost * s.quantity)}</td><td>${s.notes||'—'}</td>
+      <td><button class="del-btn" onclick="deleteSupply('${s.id}')">🗑</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function saveSupply() {
+  const body = { name: document.getElementById('sup-name').value, unit_cost: +document.getElementById('sup-unit').value, quantity: +document.getElementById('sup-qty').value, purchase_date: document.getElementById('sup-date').value, notes: document.getElementById('sup-notes').value };
+  if (!body.name || !body.unit_cost) { showToast('Nombre y costo son requeridos'); return; }
+  const { error } = await db.from('supply_costs').insert(body);
+  if (error) { showToast('Error: ' + error.message); return; }
+  closeModal(); summaryData = null;
+  document.getElementById('sup-name').value = '';
+  document.getElementById('sup-unit').value = '';
+  document.getElementById('sup-qty').value = '1';
+  document.getElementById('sup-notes').value = '';
+  showToast('Implemento guardado ✓');
+  loadSupplies();
+}
+
+async function deleteSupply(id) {
+  if (!confirm('¿Eliminar este implemento?')) return;
+  await db.from('supply_costs').delete().eq('id', id);
+  summaryData = null; loadSupplies(); showToast('Eliminado');
+}
+
+// ── ENVÍOS ────────────────────────────────────────────────────
+async function loadShipping() {
+  const wrap = document.getElementById('ship-table-wrap');
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const { data } = await db.from('shipping_costs').select('*').order('date', { ascending: false });
+  if (!data || !data.length) { wrap.innerHTML = '<div class="empty">Sin envíos registrados</div>'; return; }
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Fecha</th><th>Transportista</th><th>Ciudad</th><th>Costo</th><th>Notas</th><th></th></tr></thead>
+    <tbody>${data.map(s => `<tr>
+      <td>${s.date}</td><td>${s.carrier||'—'}</td><td>${s.destination_city||'—'}</td>
+      <td class="amount neg">${fmt(s.cost)}</td><td>${s.notes||'—'}</td>
+      <td><button class="del-btn" onclick="deleteShipping('${s.id}')">🗑</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function saveShipping() {
+  const body = { carrier: document.getElementById('ship-carrier').value, destination_city: document.getElementById('ship-city').value, cost: +document.getElementById('ship-cost').value, date: document.getElementById('ship-date').value, notes: document.getElementById('ship-notes').value };
+  if (!body.cost) { showToast('El costo es requerido'); return; }
+  const { error } = await db.from('shipping_costs').insert(body);
+  if (error) { showToast('Error: ' + error.message); return; }
+  closeModal(); summaryData = null;
+  document.getElementById('ship-carrier').value = '';
+  document.getElementById('ship-city').value = '';
+  document.getElementById('ship-cost').value = '';
+  document.getElementById('ship-notes').value = '';
+  showToast('Envío guardado ✓');
+  loadShipping();
+}
+
+async function deleteShipping(id) {
+  if (!confirm('¿Eliminar este envío?')) return;
+  await db.from('shipping_costs').delete().eq('id', id);
+  summaryData = null; loadShipping(); showToast('Eliminado');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+loadSummary();
+</script>
+</body>
+</html>
