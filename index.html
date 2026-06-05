@@ -204,13 +204,37 @@
 <div class="modal-overlay" id="modal-tx">
   <div class="modal">
     <h3>Nueva Transacción</h3>
-    <div class="form-group"><label>Tipo</label>
-      <select id="tx-type"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
+    <div class="form-row">
+      <div class="form-group"><label>Tipo</label>
+        <select id="tx-type" onchange="toggleTxFields()"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
+      </div>
+      <div class="form-group"><label>Categoría</label>
+        <select id="tx-cat" onchange="toggleTxFields()"><option value="venta">Venta</option><option value="implemento">Implemento</option><option value="envio">Envío</option><option value="otro">Otro</option></select>
+      </div>
     </div>
-    <div class="form-group"><label>Categoría</label>
-      <select id="tx-cat"><option value="venta">Venta</option><option value="implemento">Implemento</option><option value="envio">Envío</option><option value="otro">Otro</option></select>
+
+    <!-- Campos específicos para Venta / Ingreso -->
+    <div id="tx-venta-fields">
+      <div class="form-group"><label>Nombre del perfume</label><input type="text" id="tx-perfume" placeholder="Ej: Sauvage, 1 Million, Khamrah"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Tamaño</label>
+          <select id="tx-talla">
+            <option value="30ml">30ml</option>
+            <option value="50ml" selected>50ml</option>
+            <option value="100ml">100ml</option>
+            <option value="10ml">10ml (muestra)</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Unidades</label><input type="number" id="tx-units" min="1" value="1"></div>
+      </div>
     </div>
-    <div class="form-group"><label>Descripción</label><input type="text" id="tx-desc" placeholder="Ej: Venta perfume Sauvage 50ml"></div>
+
+    <!-- Campo descripción para otras categorías -->
+    <div id="tx-desc-field" style="display:none">
+      <div class="form-group"><label>Descripción</label><input type="text" id="tx-desc" placeholder="Descripción del egreso"></div>
+    </div>
+
     <div class="form-row">
       <div class="form-group"><label>Monto ($)</label><input type="number" id="tx-amount" step="0.01" min="0" placeholder="0.00"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="tx-date"></div>
@@ -246,6 +270,19 @@
 <div class="modal-overlay" id="modal-ship">
   <div class="modal">
     <h3>Nuevo Costo de Envío</h3>
+    <div class="form-group"><label>Nombre del perfume</label><input type="text" id="ship-perfume" placeholder="Ej: Sauvage, Scandal, Khamrah"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Tamaño</label>
+        <select id="ship-talla">
+          <option value="30ml">30ml</option>
+          <option value="50ml" selected>50ml</option>
+          <option value="100ml">100ml</option>
+          <option value="10ml">10ml (muestra)</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Unidades</label><input type="number" id="ship-units" min="1" value="1"></div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label>Transportista</label><input type="text" id="ship-carrier" placeholder="Ej: Servientrega"></div>
       <div class="form-group"><label>Ciudad destino</label><input type="text" id="ship-city" placeholder="Ej: Guayaquil"></div>
@@ -301,9 +338,19 @@ function openModal() {
   document.getElementById(id).classList.add('open');
   const today = new Date().toISOString().split('T')[0];
   document.querySelectorAll(`#${id} input[type=date]`).forEach(f => { if (!f.value) f.value = today; });
+  if (id === 'modal-tx') toggleTxFields();
 }
 function closeModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(); }));
+
+// ── Mostrar/ocultar campos según tipo+categoría ───────────────
+function toggleTxFields() {
+  const cat  = document.getElementById('tx-cat').value;
+  const type = document.getElementById('tx-type').value;
+  const isVenta = (cat === 'venta' && type === 'ingreso');
+  document.getElementById('tx-venta-fields').style.display = isVenta ? 'block' : 'none';
+  document.getElementById('tx-desc-field').style.display   = isVenta ? 'none'  : 'block';
+}
 
 // ── Toast ─────────────────────────────────────────────────────
 function showToast(msg) {
@@ -430,11 +477,26 @@ async function loadTransactions() {
 async function saveTx() {
   const btn = document.getElementById('btn-save-tx');
   btn.disabled = true;
-  const body = { type: document.getElementById('tx-type').value, category: document.getElementById('tx-cat').value, description: document.getElementById('tx-desc').value, amount: +document.getElementById('tx-amount').value, date: document.getElementById('tx-date').value };
+  const type = document.getElementById('tx-type').value;
+  const cat  = document.getElementById('tx-cat').value;
+  const isVenta = (cat === 'venta' && type === 'ingreso');
+  let description = '';
+  if (isVenta) {
+    const perfume = document.getElementById('tx-perfume').value.trim();
+    const talla   = document.getElementById('tx-talla').value;
+    const units   = document.getElementById('tx-units').value;
+    if (!perfume) { showToast('Ingresa el nombre del perfume'); btn.disabled=false; return; }
+    description = `${perfume} | ${talla} | ${units} und.`;
+  } else {
+    description = document.getElementById('tx-desc').value;
+  }
+  const body = { type, category: cat, description, amount: +document.getElementById('tx-amount').value, date: document.getElementById('tx-date').value };
   if (!body.amount) { showToast('Ingresa un monto'); btn.disabled=false; return; }
   const { error } = await db.from('transactions').insert(body);
   if (error) { showToast('Error: ' + error.message); btn.disabled=false; return; }
   closeModal(); summaryData = null;
+  document.getElementById('tx-perfume').value = '';
+  document.getElementById('tx-units').value = '1';
   document.getElementById('tx-desc').value = '';
   document.getElementById('tx-amount').value = '';
   showToast('Transacción guardada ✓');
@@ -502,11 +564,24 @@ async function loadShipping() {
 }
 
 async function saveShipping() {
-  const body = { carrier: document.getElementById('ship-carrier').value, destination_city: document.getElementById('ship-city').value, cost: +document.getElementById('ship-cost').value, date: document.getElementById('ship-date').value, notes: document.getElementById('ship-notes').value };
+  const perfume = document.getElementById('ship-perfume').value.trim();
+  const talla   = document.getElementById('ship-talla').value;
+  const units   = document.getElementById('ship-units').value;
+  const extraNotes = document.getElementById('ship-notes').value;
+  const notesStr = [perfume ? `${perfume} | ${talla} | ${units} und.` : '', extraNotes].filter(Boolean).join(' — ');
+  const body = {
+    carrier: document.getElementById('ship-carrier').value,
+    destination_city: document.getElementById('ship-city').value,
+    cost: +document.getElementById('ship-cost').value,
+    date: document.getElementById('ship-date').value,
+    notes: notesStr
+  };
   if (!body.cost) { showToast('El costo es requerido'); return; }
   const { error } = await db.from('shipping_costs').insert(body);
   if (error) { showToast('Error: ' + error.message); return; }
   closeModal(); summaryData = null;
+  document.getElementById('ship-perfume').value = '';
+  document.getElementById('ship-units').value = '1';
   document.getElementById('ship-carrier').value = '';
   document.getElementById('ship-city').value = '';
   document.getElementById('ship-cost').value = '';
