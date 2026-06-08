@@ -239,6 +239,19 @@
       <div class="form-group"><label>Monto ($)</label><input type="number" id="tx-amount" step="0.01" min="0" placeholder="0.00"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="tx-date"></div>
     </div>
+
+    <!-- Envío opcional -->
+    <div id="tx-envio-fields" style="display:none">
+      <div style="border-top:1px solid #2a2208; margin: 14px 0 16px; position:relative;">
+        <span style="position:absolute;top:-10px;left:12px;background:#111108;padding:0 8px;font-size:.72rem;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;">Envío (opcional)</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Transportista</label><input type="text" id="tx-carrier" placeholder="Ej: Servientrega"></div>
+        <div class="form-group"><label>Ciudad destino</label><input type="text" id="tx-ship-city" placeholder="Ej: Guayaquil"></div>
+      </div>
+      <div class="form-group"><label>Costo de envío ($)</label><input type="number" id="tx-ship-cost" step="0.01" min="0" placeholder="0.00"></div>
+    </div>
+
     <div class="btn-row">
       <button class="btn secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn primary" id="btn-save-tx" onclick="saveTx()">Guardar</button>
@@ -349,7 +362,8 @@ function toggleTxFields() {
   const type = document.getElementById('tx-type').value;
   const isVenta = (cat === 'venta' && type === 'ingreso');
   document.getElementById('tx-venta-fields').style.display = isVenta ? 'block' : 'none';
-  document.getElementById('tx-desc-field').style.display   = isVenta ? 'none'  : 'block';
+  document.getElementById('tx-envio-fields').style.display  = isVenta ? 'block' : 'none';
+  document.getElementById('tx-desc-field').style.display    = isVenta ? 'none'  : 'block';
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -494,12 +508,31 @@ async function saveTx() {
   if (!body.amount) { showToast('Ingresa un monto'); btn.disabled=false; return; }
   const { error } = await db.from('transactions').insert(body);
   if (error) { showToast('Error: ' + error.message); btn.disabled=false; return; }
+
+  // Guardar envío si se llenó el costo
+  const shipCost = +document.getElementById('tx-ship-cost').value;
+  if (isVenta && shipCost > 0) {
+    const perfume  = document.getElementById('tx-perfume').value.trim();
+    const talla    = document.getElementById('tx-talla').value;
+    const units    = document.getElementById('tx-units').value;
+    await db.from('shipping_costs').insert({
+      carrier: document.getElementById('tx-carrier').value,
+      destination_city: document.getElementById('tx-ship-city').value,
+      cost: shipCost,
+      date: document.getElementById('tx-date').value,
+      notes: `${perfume} | ${talla} | ${units} und.`
+    });
+  }
+
   closeModal(); summaryData = null;
   document.getElementById('tx-perfume').value = '';
   document.getElementById('tx-units').value = '1';
   document.getElementById('tx-desc').value = '';
   document.getElementById('tx-amount').value = '';
-  showToast('Transacción guardada ✓');
+  document.getElementById('tx-carrier').value = '';
+  document.getElementById('tx-ship-city').value = '';
+  document.getElementById('tx-ship-cost').value = '';
+  showToast(shipCost > 0 && isVenta ? 'Venta y envío guardados ✓' : 'Transacción guardada ✓');
   if (activeTab === 'transacciones') loadTransactions();
   if (activeTab === 'resumen') { document.getElementById('kpi-loading').style.display='block'; document.getElementById('kpi-container').style.display='none'; loadSummary(); }
   btn.disabled = false;
