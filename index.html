@@ -223,7 +223,7 @@
 
     <!-- Campos específicos para Venta / Ingreso -->
     <div id="tx-venta-fields">
-      <div class="form-group"><label>Nombre del perfume</label><input type="text" id="tx-perfume" placeholder="Ej: Sauvage, 1 Million, Khamrah"></div>
+      <div class="form-group"><label>Nombre del perfume</label><input type="text" id="tx-perfume" placeholder="Escribe o selecciona..." list="perfumes-list" autocomplete="off"></div>
       <div class="form-row">
         <div class="form-group"><label>Tamaño</label>
           <select id="tx-talla">
@@ -321,7 +321,7 @@
   <div class="modal">
     <h3>Nuevo Perfume</h3>
     <div class="form-row">
-      <div class="form-group" style="flex:2"><label>Nombre del perfume</label><input type="text" id="inv-name" placeholder="Ej: Sauvage, Scandal..."></div>
+      <div class="form-group" style="flex:2"><label>Nombre del perfume</label><input type="text" id="inv-name" placeholder="Escribe o selecciona..." list="perfumes-list" autocomplete="off"></div>
       <div class="form-group"><label>Stock</label><input type="number" id="inv-stock" min="1" value="1"></div>
     </div>
 
@@ -409,6 +409,39 @@
     </div>
   </div>
 </div>
+
+<!-- Lista de perfumes del catálogo Perpetum -->
+<datalist id="perfumes-list">
+  <!-- Hombre -->
+  <option value="Le Male">
+  <option value="1 Million">
+  <option value="Ultra Male">
+  <option value="Sauvage">
+  <option value="Fahrenheit">
+  <option value="1 Million Privé">
+  <option value="Odyssey Aqua Edition">
+  <option value="212 Men">
+  <option value="Swiss Army">
+  <!-- Mujer -->
+  <option value="La Bomba">
+  <option value="La Nuit Trésor">
+  <option value="Scandal">
+  <option value="Chance Eau Tendre EDP">
+  <option value="Club de Nuit Woman">
+  <option value="Whipped Pleasure">
+  <option value="Tommy Girl">
+  <option value="Island Bliss">
+  <option value="Mad Love">
+  <!-- Unisex -->
+  <option value="Khamrah">
+  <option value="Vanilla 28">
+  <option value="Amore Caffè">
+  <option value="Amber Oud Gold Edition">
+  <option value="Lost Cherry">
+  <option value="Odyssey Black Forest">
+  <option value="Odyssey Go Mango">
+  <option value="Khamrah Qahwa">
+</datalist>
 
 <div class="toast" id="toast"></div>
 
