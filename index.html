@@ -104,6 +104,14 @@
   .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Componentes de inventario */
+  .comp-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #1a1a0a; flex-wrap:wrap; }
+  .comp-label { display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text); cursor:pointer; min-width:120px; flex-shrink:0; }
+  .comp-label input[type=checkbox] { accent-color:var(--brand); width:16px; height:16px; cursor:pointer; }
+  .comp-row select { padding:5px 8px; border:1px solid #2a2208; border-radius:6px; background:#0a0a0a; color:var(--text); font-size:.82rem; flex-shrink:0; }
+  .comp-unit { font-size:.85rem; font-weight:700; color:var(--brand); min-width:56px; text-align:right; margin-left:auto; }
+  .comp-sub  { font-size:.7rem; color:var(--muted); white-space:nowrap; }
+
   @media (max-width: 600px) {
     .table-wrap { overflow-x: auto; }
     table { min-width: 520px; }
@@ -311,24 +319,90 @@
 <!-- MODAL INVENTARIO -->
 <div class="modal-overlay" id="modal-inv">
   <div class="modal">
-    <h3>Agregar al Inventario</h3>
-    <div class="form-group"><label>Nombre del perfume</label><input type="text" id="inv-name" placeholder="Ej: Sauvage, Scandal, Khamrah"></div>
+    <h3>Nuevo Perfume</h3>
     <div class="form-row">
-      <div class="form-group"><label>Tamaño</label>
-        <select id="inv-size">
-          <option value="30ml">30ml</option>
-          <option value="50ml" selected>50ml</option>
-          <option value="100ml">100ml</option>
-          <option value="10ml">10ml (muestra)</option>
-          <option value="otro">Otro</option>
-        </select>
+      <div class="form-group" style="flex:2"><label>Nombre del perfume</label><input type="text" id="inv-name" placeholder="Ej: Sauvage, Scandal..."></div>
+      <div class="form-group"><label>Stock</label><input type="number" id="inv-stock" min="1" value="1"></div>
+    </div>
+
+    <div style="border-top:1px solid #2a2208;margin:14px 0 16px;position:relative;">
+      <span style="position:absolute;top:-10px;left:12px;background:#111108;padding:0 8px;font-size:.72rem;color:var(--brand);letter-spacing:.6px;text-transform:uppercase;font-weight:600;">Componentes</span>
+    </div>
+
+    <!-- Frasco -->
+    <div class="comp-row">
+      <label class="comp-label"><input type="checkbox" id="chk-frasco" onchange="calcInvCost()"> Frasco</label>
+      <select id="sel-frasco" onchange="calcInvCost()">
+        <option value="10ml">10ml</option><option value="30ml">30ml</option>
+        <option value="50ml" selected>50ml</option><option value="100ml">100ml</option>
+      </select>
+      <span class="comp-unit" id="u-frasco">—</span>
+      <span class="comp-sub" id="s-frasco"></span>
+    </div>
+
+    <!-- Esencia -->
+    <div class="comp-row">
+      <label class="comp-label"><input type="checkbox" id="chk-esencia" onchange="calcInvCost()"> Esencia</label>
+      <select id="sel-esencia-pres" onchange="calcInvCost()">
+        <option value="1 oz">1 oz</option><option value="2 oz">2 oz</option>
+        <option value="3 oz">3 oz</option><option value="4 oz">4 oz</option>
+        <option value="8 oz">8 oz</option><option value="16 oz">16 oz</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:4px;flex:1">
+        <input type="number" id="qty-esencia" min="0.1" step="0.1" value="1" style="width:60px;padding:6px 8px;border:1px solid #2a2208;border-radius:6px;background:#0a0a0a;color:var(--text);font-size:.82rem" onchange="calcInvCost()">
+        <span style="font-size:.75rem;color:var(--muted)">oz usadas</span>
       </div>
-      <div class="form-group"><label>Stock (unidades)</label><input type="number" id="inv-stock" min="0" value="1"></div>
+      <span class="comp-unit" id="u-esencia">—</span>
+      <span class="comp-sub" id="s-esencia"></span>
+    </div>
+
+    <!-- Alcohol -->
+    <div class="comp-row">
+      <label class="comp-label"><input type="checkbox" id="chk-alcohol" onchange="calcInvCost()"> Alcohol</label>
+      <span style="font-size:.8rem;color:var(--muted)">1 litro</span>
+      <div style="display:flex;align-items:center;gap:4px;flex:1">
+        <input type="number" id="qty-alcohol" min="1" step="1" value="100" style="width:60px;padding:6px 8px;border:1px solid #2a2208;border-radius:6px;background:#0a0a0a;color:var(--text);font-size:.82rem" onchange="calcInvCost()">
+        <span style="font-size:.75rem;color:var(--muted)">ml usados</span>
+      </div>
+      <span class="comp-unit" id="u-alcohol">—</span>
+      <span class="comp-sub" id="s-alcohol"></span>
+    </div>
+
+    <!-- Sticker -->
+    <div class="comp-row">
+      <label class="comp-label"><input type="checkbox" id="chk-sticker" onchange="calcInvCost()"> Sticker</label>
+      <span style="font-size:.8rem;color:var(--muted);flex:1">× 1 unidad</span>
+      <span class="comp-unit" id="u-sticker">—</span>
+      <span class="comp-sub" id="s-sticker"></span>
+    </div>
+
+    <!-- Bolsa de yute -->
+    <div class="comp-row">
+      <label class="comp-label"><input type="checkbox" id="chk-bolsa" onchange="calcInvCost()"> Bolsa de yute</label>
+      <select id="sel-bolsa" onchange="calcInvCost()">
+        <option value="Grande">Grande</option><option value="Mediana">Mediana</option>
+      </select>
+      <span class="comp-unit" id="u-bolsa">—</span>
+      <span class="comp-sub" id="s-bolsa"></span>
+    </div>
+
+    <div style="border-top:1px solid #2a2208;margin:14px 0 10px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="font-size:.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Costo total calculado</span>
+      <span id="inv-total-cost" style="font-size:1.3rem;font-weight:700;color:var(--brand)">$0.00</span>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Costo c/u ($)</label><input type="number" id="inv-cost" step="0.01" min="0" placeholder="0.00"></div>
-      <div class="form-group"><label>Precio venta ($)</label><input type="number" id="inv-price" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group">
+        <label>Precio de venta ($)</label>
+        <input type="number" id="inv-price" step="0.01" min="0" placeholder="0.00" oninput="calcInvMargin()">
+      </div>
+      <div class="form-group">
+        <label>Margen estimado</label>
+        <div id="inv-margin" style="padding:10px 12px;border:1px solid #2a2208;border-radius:8px;background:#0a0a0a;font-weight:700;color:var(--green)">—</div>
+      </div>
     </div>
+    <div id="inv-price-warn" style="font-size:.78rem;color:var(--red);margin-top:-8px;margin-bottom:10px;display:none">⚠ El precio de venta es menor al costo</div>
+
     <div class="btn-row">
       <button class="btn secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn primary" onclick="saveInventory()">Guardar</button>
@@ -377,6 +451,7 @@ function openModal() {
   document.querySelectorAll(`#${id} input[type=date]`).forEach(f => { if (!f.value) f.value = today; });
   if (id === 'modal-tx') toggleTxFields();
   if (id === 'modal-sup') updateSupplyFields();
+  if (id === 'modal-inv') loadSupplyPrices();
 }
 function closeModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(); }));
@@ -649,6 +724,99 @@ async function deleteSupply(id) {
   summaryData = null; loadSupplies(); showToast('Eliminado');
 }
 
+// ── INVENTARIO — precios de implementos ──────────────────────
+let invPrices = {}; // { 'frasco_50ml': 2.50, 'esencia_1 oz': 5.00, ... }
+
+async function loadSupplyPrices() {
+  const { data } = await db.from('supply_costs').select('name, unit_cost, purchase_date').order('purchase_date', { ascending: false });
+  invPrices = {};
+  (data || []).forEach(s => {
+    const parts = s.name.split(' — ');
+    const tipo  = (parts[0] || '').trim().toLowerCase().replace(/ /g,'_');
+    const pres  = (parts[1] || 'unidad').trim();
+    const key   = `${tipo}_${pres}`;
+    if (!invPrices[key]) invPrices[key] = +s.unit_cost; // toma el más reciente
+  });
+  calcInvCost();
+}
+
+function getPrice(tipo, pres) {
+  const key = `${tipo}_${pres}`;
+  return invPrices[key] || null;
+}
+
+function setComp(id, cost, label) {
+  const u = document.getElementById(`u-${id}`);
+  const s = document.getElementById(`s-${id}`);
+  if (cost !== null) { u.textContent = fmt(cost); if (s) s.textContent = label || ''; }
+  else { u.textContent = '—'; if (s) s.textContent = 'sin precio'; }
+}
+
+function calcInvCost() {
+  let total = 0;
+
+  // Frasco
+  if (document.getElementById('chk-frasco').checked) {
+    const pres = document.getElementById('sel-frasco').value;
+    const p = getPrice('frasco', pres);
+    setComp('frasco', p, p ? `${pres}` : '');
+    if (p) total += p;
+  } else setComp('frasco', null, '');
+
+  // Esencia
+  if (document.getElementById('chk-esencia').checked) {
+    const pres = document.getElementById('sel-esencia-pres').value;
+    const qty  = +document.getElementById('qty-esencia').value || 1;
+    const p = getPrice('esencia', pres);
+    // precio por oz = unit_cost del frasco comprado / oz de esa presentación
+    const ozTotal = parseFloat(pres);
+    const costPerOz = p && ozTotal ? p / ozTotal : null;
+    const subtotal = costPerOz ? costPerOz * qty : null;
+    setComp('esencia', subtotal, subtotal ? `${qty} oz × ${fmt(costPerOz)}/oz` : '');
+    if (subtotal) total += subtotal;
+  } else setComp('esencia', null, '');
+
+  // Alcohol (litro = 1000ml)
+  if (document.getElementById('chk-alcohol').checked) {
+    const ml  = +document.getElementById('qty-alcohol').value || 100;
+    const p   = getPrice('alcohol', '1 litro');
+    const subtotal = p ? (p / 1000) * ml : null;
+    setComp('alcohol', subtotal, subtotal ? `${ml}ml × ${fmt(p/1000)}/ml` : '');
+    if (subtotal) total += subtotal;
+  } else setComp('alcohol', null, '');
+
+  // Sticker
+  if (document.getElementById('chk-sticker').checked) {
+    const p = getPrice('sticker', 'unidad');
+    setComp('sticker', p, '');
+    if (p) total += p;
+  } else setComp('sticker', null, '');
+
+  // Bolsa de yute
+  if (document.getElementById('chk-bolsa').checked) {
+    const pres = document.getElementById('sel-bolsa').value;
+    const p = getPrice('bolsa_de_yute', pres);
+    setComp('bolsa', p, pres);
+    if (p) total += p;
+  } else setComp('bolsa', null, '');
+
+  document.getElementById('inv-total-cost').textContent = fmt(total);
+  calcInvMargin();
+  return total;
+}
+
+function calcInvMargin() {
+  const cost  = parseFloat(document.getElementById('inv-total-cost').textContent.replace('$','').replace(',','')) || 0;
+  const price = +document.getElementById('inv-price').value || 0;
+  const mEl   = document.getElementById('inv-margin');
+  const wEl   = document.getElementById('inv-price-warn');
+  if (!price) { mEl.textContent = '—'; mEl.style.color = 'var(--muted)'; wEl.style.display='none'; return; }
+  const margen = ((price - cost) / price * 100).toFixed(1);
+  mEl.textContent = `${margen}%`;
+  mEl.style.color = price >= cost ? 'var(--green)' : 'var(--red)';
+  wEl.style.display = price < cost ? 'block' : 'none';
+}
+
 // ── INVENTARIO ────────────────────────────────────────────────
 async function loadInventory() {
   const wrap = document.getElementById('inv-table-wrap');
@@ -677,16 +845,22 @@ async function loadInventory() {
 }
 
 async function saveInventory() {
-  const body = { perfume: document.getElementById('inv-name').value.trim(), size: document.getElementById('inv-size').value, stock: +document.getElementById('inv-stock').value, cost_per_unit: +document.getElementById('inv-cost').value, sale_price: +document.getElementById('inv-price').value };
-  if (!body.perfume) { showToast('Ingresa el nombre del perfume'); return; }
+  const name  = document.getElementById('inv-name').value.trim();
+  if (!name) { showToast('Ingresa el nombre del perfume'); return; }
+  const cost  = parseFloat(document.getElementById('inv-total-cost').textContent.replace('$','').replace(',','')) || 0;
+  // Determinar tamaño desde frasco seleccionado
+  const size  = document.getElementById('chk-frasco').checked ? document.getElementById('sel-frasco').value : '—';
+  const body  = { perfume: name, size, stock: +document.getElementById('inv-stock').value, cost_per_unit: cost, sale_price: +document.getElementById('inv-price').value || 0 };
   const { error } = await db.from('inventory').insert(body);
   if (error) { showToast('Error: ' + error.message); return; }
   closeModal();
   document.getElementById('inv-name').value = '';
   document.getElementById('inv-stock').value = '1';
-  document.getElementById('inv-cost').value = '';
   document.getElementById('inv-price').value = '';
-  showToast('Producto agregado ✓');
+  // Desmarcar checkboxes
+  ['frasco','esencia','alcohol','sticker','bolsa'].forEach(id => { const el = document.getElementById(`chk-${id}`); if(el) el.checked = false; });
+  calcInvCost();
+  showToast('Perfume agregado ✓');
   loadInventory();
 }
 
