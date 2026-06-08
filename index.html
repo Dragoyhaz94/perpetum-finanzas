@@ -171,6 +171,7 @@
       <select id="filter-cat" onchange="loadTransactions()">
         <option value="">Todas las categorías</option>
         <option value="venta">Venta</option>
+        <option value="envio">Envío</option>
         <option value="implemento">Implemento</option>
         <option value="otro">Otro</option>
       </select>
@@ -506,20 +507,28 @@ async function saveTx() {
   const { error } = await db.from('transactions').insert(body);
   if (error) { showToast('Error: ' + error.message); btn.disabled=false; return; }
 
-  // Guardar envío si se llenó el costo
+  // Guardar envío como egreso si se llenó el costo
   const shipCost = +document.getElementById('tx-ship-cost').value;
   if (isVenta && shipCost > 0) {
-    const perfume  = document.getElementById('tx-perfume').value.trim();
-    const talla    = document.getElementById('tx-talla').value;
-    const units    = document.getElementById('tx-units').value;
-    const shipNote = document.getElementById('tx-ship-notes').value;
-    const notesStr = [perfume ? `${perfume} | ${talla} | ${units} und.` : '', shipNote].filter(Boolean).join(' — ');
+    const perfume   = document.getElementById('tx-perfume').value.trim();
+    const talla     = document.getElementById('tx-talla').value;
+    const units     = document.getElementById('tx-units').value;
+    const carrier   = document.getElementById('tx-carrier').value;
+    const shipCity  = document.getElementById('tx-ship-city').value;
+    const shipNote  = document.getElementById('tx-ship-notes').value;
+    const shipDesc  = [`Envío: ${perfume} | ${talla} | ${units} und.`, carrier, shipCity, shipNote].filter(Boolean).join(' — ');
+    // Guardar como egreso en transacciones
+    await db.from('transactions').insert({
+      type: 'egreso', category: 'envio',
+      description: shipDesc,
+      amount: shipCost,
+      date: document.getElementById('tx-date').value
+    });
+    // Guardar también en shipping_costs para historial
     await db.from('shipping_costs').insert({
-      carrier: document.getElementById('tx-carrier').value,
-      destination_city: document.getElementById('tx-ship-city').value,
-      cost: shipCost,
+      carrier, destination_city: shipCity, cost: shipCost,
       date: document.getElementById('tx-date').value,
-      notes: notesStr
+      notes: shipDesc
     });
   }
 
