@@ -265,11 +265,37 @@
 <!-- MODAL IMPLEMENTO -->
 <div class="modal-overlay" id="modal-sup">
   <div class="modal">
-    <h3>Nuevo Implemento / Insumo</h3>
-    <div class="form-group"><label>Nombre del insumo</label><input type="text" id="sup-name" placeholder="Ej: Frasco 50ml, Etiqueta, Caja"></div>
+    <h3>Nuevo Implemento</h3>
+
+    <div class="form-group"><label>Tipo de insumo</label>
+      <select id="sup-type" onchange="updateSupplyFields()">
+        <option value="esencia">Esencia</option>
+        <option value="frasco">Frasco</option>
+        <option value="alcohol">Alcohol</option>
+        <option value="fijador">Fijador</option>
+        <option value="embudo">Embudo</option>
+        <option value="bolsa_yute">Bolsa de yute</option>
+        <option value="sticker">Sticker</option>
+      </select>
+    </div>
+
+    <!-- Presentación dinámica -->
+    <div class="form-group" id="sup-pres-group">
+      <label id="sup-pres-label">Presentación</label>
+      <select id="sup-pres">
+        <!-- se llena dinámicamente -->
+      </select>
+    </div>
+
+    <!-- Nombre / descripción opcional -->
+    <div class="form-group" id="sup-name-group">
+      <label id="sup-name-label">Nombre / descripción</label>
+      <input type="text" id="sup-name" placeholder="Ej: Sauvage, Blue label...">
+    </div>
+
     <div class="form-row">
-      <div class="form-group"><label>Costo unitario ($)</label><input type="number" id="sup-unit" step="0.01" min="0" placeholder="0.00"></div>
       <div class="form-group"><label>Cantidad</label><input type="number" id="sup-qty" min="1" value="1"></div>
+      <div class="form-group"><label>Costo unitario ($)</label><input type="number" id="sup-unit" step="0.01" min="0" placeholder="0.00"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Fecha de compra</label><input type="date" id="sup-date"></div>
@@ -350,6 +376,7 @@ function openModal() {
   const today = new Date().toISOString().split('T')[0];
   document.querySelectorAll(`#${id} input[type=date]`).forEach(f => { if (!f.value) f.value = today; });
   if (id === 'modal-tx') toggleTxFields();
+  if (id === 'modal-sup') updateSupplyFields();
 }
 function closeModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(); }));
@@ -553,6 +580,34 @@ async function deleteTx(id) {
   summaryData = null; loadTransactions(); showToast('Eliminada');
 }
 
+// ── IMPLEMENTOS — campos dinámicos ───────────────────────────
+const SUPPLY_CONFIG = {
+  esencia:    { pres: ['1 oz','2 oz','3 oz','4 oz','8 oz','16 oz'], label:'Cantidad en onzas', nameLabel:'Nombre de la esencia', showName: true },
+  frasco:     { pres: ['10ml','30ml','50ml','100ml'],                label:'Presentación',       nameLabel:'Color / tipo (opcional)', showName: true },
+  alcohol:    { pres: ['1 litro'],                                   label:'Presentación',       nameLabel:'Marca (opcional)',         showName: true,  fixedQty: true },
+  fijador:    { pres: ['unidad'],                                    label:'Presentación',       nameLabel:'Marca (opcional)',         showName: true  },
+  embudo:     { pres: ['unidad'],                                    label:'Presentación',       nameLabel: null,                      showName: false },
+  bolsa_yute: { pres: ['Grande','Mediana'],                          label:'Tamaño',             nameLabel: null,                      showName: false },
+  sticker:    { pres: ['unidad'],                                    label:'Presentación',       nameLabel:'Diseño (opcional)',        showName: true  },
+};
+
+function updateSupplyFields() {
+  const type = document.getElementById('sup-type').value;
+  const cfg  = SUPPLY_CONFIG[type];
+  // Presentación
+  const pres = document.getElementById('sup-pres');
+  pres.innerHTML = cfg.pres.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('sup-pres-label').textContent = cfg.label;
+  // Nombre
+  const nameGroup = document.getElementById('sup-name-group');
+  nameGroup.style.display = cfg.showName ? 'block' : 'none';
+  if (cfg.nameLabel) document.getElementById('sup-name-label').textContent = cfg.nameLabel;
+  // Cantidad fija
+  const qtyInput = document.getElementById('sup-qty');
+  if (cfg.fixedQty) { qtyInput.value = 1; qtyInput.readOnly = true; qtyInput.style.opacity = '.5'; }
+  else { qtyInput.readOnly = false; qtyInput.style.opacity = '1'; }
+}
+
 // ── IMPLEMENTOS ───────────────────────────────────────────────
 async function loadSupplies() {
   const wrap = document.getElementById('sup-table-wrap');
@@ -570,8 +625,13 @@ async function loadSupplies() {
 }
 
 async function saveSupply() {
-  const body = { name: document.getElementById('sup-name').value, unit_cost: +document.getElementById('sup-unit').value, quantity: +document.getElementById('sup-qty').value, purchase_date: document.getElementById('sup-date').value, notes: document.getElementById('sup-notes').value };
-  if (!body.name || !body.unit_cost) { showToast('Nombre y costo son requeridos'); return; }
+  const type  = document.getElementById('sup-type').value;
+  const pres  = document.getElementById('sup-pres').value;
+  const extra = document.getElementById('sup-name').value.trim();
+  const typeLabel = { esencia:'Esencia', frasco:'Frasco', alcohol:'Alcohol', fijador:'Fijador', embudo:'Embudo', bolsa_yute:'Bolsa de yute', sticker:'Sticker' }[type];
+  const name  = [typeLabel, pres, extra].filter(Boolean).join(' — ');
+  const body  = { name, unit_cost: +document.getElementById('sup-unit').value, quantity: +document.getElementById('sup-qty').value, purchase_date: document.getElementById('sup-date').value, notes: document.getElementById('sup-notes').value };
+  if (!body.unit_cost) { showToast('Ingresa el costo unitario'); return; }
   const { error } = await db.from('supply_costs').insert(body);
   if (error) { showToast('Error: ' + error.message); return; }
   closeModal(); summaryData = null;
