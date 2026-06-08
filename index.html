@@ -128,7 +128,7 @@
   <button data-tab="flujo">Flujo de Efectivo</button>
   <button data-tab="transacciones">Transacciones</button>
   <button data-tab="implementos">Implementos</button>
-  <button data-tab="envios">Envíos</button>
+  <button data-tab="inventario">Inventario</button>
 </nav>
 
 <main>
@@ -186,10 +186,10 @@
     <div class="table-wrap" id="sup-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
-  <!-- ENVÍOS -->
-  <div class="tab-panel" id="tab-envios">
-    <div class="section-header"><h2>Costos de Envío</h2></div>
-    <div class="table-wrap" id="ship-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
+  <!-- INVENTARIO -->
+  <div class="tab-panel" id="tab-inventario">
+    <div class="section-header"><h2>Inventario de Perfumes</h2></div>
+    <div class="table-wrap" id="inv-table-wrap"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 
 </main>
@@ -241,14 +241,17 @@
 
     <!-- Envío opcional -->
     <div id="tx-envio-fields" style="display:none">
-      <div style="border-top:1px solid #2a2208; margin: 14px 0 16px; position:relative;">
-        <span style="position:absolute;top:-10px;left:12px;background:#111108;padding:0 8px;font-size:.72rem;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;">Envío (opcional)</span>
+      <div style="border-top:1px solid #2a2208; margin: 16px 0 16px; position:relative;">
+        <span style="position:absolute;top:-10px;left:12px;background:#111108;padding:0 8px;font-size:.72rem;color:var(--brand);letter-spacing:.6px;text-transform:uppercase;font-weight:600;">Envío (opcional)</span>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Transportista</label><input type="text" id="tx-carrier" placeholder="Ej: Servientrega"></div>
         <div class="form-group"><label>Ciudad destino</label><input type="text" id="tx-ship-city" placeholder="Ej: Guayaquil"></div>
       </div>
-      <div class="form-group"><label>Costo de envío ($)</label><input type="number" id="tx-ship-cost" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Costo de envío ($)</label><input type="number" id="tx-ship-cost" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group"><label>Notas de envío</label><input type="text" id="tx-ship-notes" placeholder="Opcional"></div>
+      </div>
     </div>
 
     <div class="btn-row">
@@ -278,14 +281,14 @@
   </div>
 </div>
 
-<!-- MODAL ENVÍO -->
-<div class="modal-overlay" id="modal-ship">
+<!-- MODAL INVENTARIO -->
+<div class="modal-overlay" id="modal-inv">
   <div class="modal">
-    <h3>Nuevo Costo de Envío</h3>
-    <div class="form-group"><label>Nombre del perfume</label><input type="text" id="ship-perfume" placeholder="Ej: Sauvage, Scandal, Khamrah"></div>
+    <h3>Agregar al Inventario</h3>
+    <div class="form-group"><label>Nombre del perfume</label><input type="text" id="inv-name" placeholder="Ej: Sauvage, Scandal, Khamrah"></div>
     <div class="form-row">
       <div class="form-group"><label>Tamaño</label>
-        <select id="ship-talla">
+        <select id="inv-size">
           <option value="30ml">30ml</option>
           <option value="50ml" selected>50ml</option>
           <option value="100ml">100ml</option>
@@ -293,20 +296,15 @@
           <option value="otro">Otro</option>
         </select>
       </div>
-      <div class="form-group"><label>Unidades</label><input type="number" id="ship-units" min="1" value="1"></div>
+      <div class="form-group"><label>Stock (unidades)</label><input type="number" id="inv-stock" min="0" value="1"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Transportista</label><input type="text" id="ship-carrier" placeholder="Ej: Servientrega"></div>
-      <div class="form-group"><label>Ciudad destino</label><input type="text" id="ship-city" placeholder="Ej: Guayaquil"></div>
+      <div class="form-group"><label>Costo c/u ($)</label><input type="number" id="inv-cost" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label>Precio venta ($)</label><input type="number" id="inv-price" step="0.01" min="0" placeholder="0.00"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Costo ($)</label><input type="number" id="ship-cost" step="0.01" min="0" placeholder="0.00"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="ship-date"></div>
-    </div>
-    <div class="form-group"><label>Notas</label><input type="text" id="ship-notes" placeholder="Opcional"></div>
     <div class="btn-row">
       <button class="btn secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn primary" onclick="saveShipping()">Guardar</button>
+      <button class="btn primary" onclick="saveInventory()">Guardar</button>
     </div>
   </div>
 </div>
@@ -339,13 +337,13 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (activeTab === 'flujo') loadSummary().then(() => renderFlujo2());
     if (activeTab === 'transacciones') loadTransactions();
     if (activeTab === 'implementos') loadSupplies();
-    if (activeTab === 'envios') loadShipping();
+    if (activeTab === 'inventario') loadInventory();
   });
 });
 
 // ── FAB ───────────────────────────────────────────────────────
 function openModal() {
-  const map = { resumen:'modal-tx', flujo:'modal-tx', transacciones:'modal-tx', implementos:'modal-sup', envios:'modal-ship' };
+  const map = { resumen:'modal-tx', flujo:'modal-tx', transacciones:'modal-tx', implementos:'modal-sup', inventario:'modal-inv' };
   const id = map[activeTab] || 'modal-tx';
   document.getElementById(id).classList.add('open');
   const today = new Date().toISOString().split('T')[0];
@@ -514,12 +512,14 @@ async function saveTx() {
     const perfume  = document.getElementById('tx-perfume').value.trim();
     const talla    = document.getElementById('tx-talla').value;
     const units    = document.getElementById('tx-units').value;
+    const shipNote = document.getElementById('tx-ship-notes').value;
+    const notesStr = [perfume ? `${perfume} | ${talla} | ${units} und.` : '', shipNote].filter(Boolean).join(' — ');
     await db.from('shipping_costs').insert({
       carrier: document.getElementById('tx-carrier').value,
       destination_city: document.getElementById('tx-ship-city').value,
       cost: shipCost,
       date: document.getElementById('tx-date').value,
-      notes: `${perfume} | ${talla} | ${units} und.`
+      notes: notesStr
     });
   }
 
@@ -531,6 +531,7 @@ async function saveTx() {
   document.getElementById('tx-carrier').value = '';
   document.getElementById('tx-ship-city').value = '';
   document.getElementById('tx-ship-cost').value = '';
+  document.getElementById('tx-ship-notes').value = '';
   showToast(shipCost > 0 && isVenta ? 'Venta y envío guardados ✓' : 'Transacción guardada ✓');
   if (activeTab === 'transacciones') loadTransactions();
   if (activeTab === 'resumen') { document.getElementById('kpi-loading').style.display='block'; document.getElementById('kpi-container').style.display='none'; loadSummary(); }
@@ -579,53 +580,57 @@ async function deleteSupply(id) {
   summaryData = null; loadSupplies(); showToast('Eliminado');
 }
 
-// ── ENVÍOS ────────────────────────────────────────────────────
-async function loadShipping() {
-  const wrap = document.getElementById('ship-table-wrap');
+// ── INVENTARIO ────────────────────────────────────────────────
+async function loadInventory() {
+  const wrap = document.getElementById('inv-table-wrap');
   wrap.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const { data } = await db.from('shipping_costs').select('*').order('date', { ascending: false });
-  if (!data || !data.length) { wrap.innerHTML = '<div class="empty">Sin envíos registrados</div>'; return; }
+  const { data } = await db.from('inventory').select('*').order('perfume', { ascending: true });
+  if (!data || !data.length) { wrap.innerHTML = '<div class="empty">Sin productos en inventario</div>'; return; }
   wrap.innerHTML = `<table>
-    <thead><tr><th>Fecha</th><th>Transportista</th><th>Ciudad</th><th>Costo</th><th>Notas</th><th></th></tr></thead>
-    <tbody>${data.map(s => `<tr>
-      <td>${s.date}</td><td>${s.carrier||'—'}</td><td>${s.destination_city||'—'}</td>
-      <td class="amount neg">${fmt(s.cost)}</td><td>${s.notes||'—'}</td>
-      <td><button class="del-btn" onclick="deleteShipping('${s.id}')">🗑</button></td>
-    </tr>`).join('')}</tbody>
+    <thead><tr><th>Perfume</th><th>Tamaño</th><th>Stock</th><th>Costo c/u</th><th>Precio venta</th><th>Margen</th><th></th></tr></thead>
+    <tbody>${data.map(p => {
+      const margen = p.sale_price > 0 ? (((p.sale_price - p.cost_per_unit) / p.sale_price) * 100).toFixed(0) + '%' : '—';
+      const stockColor = p.stock <= 2 ? 'style="color:var(--red);font-weight:700"' : p.stock <= 5 ? 'style="color:var(--yellow);font-weight:600"' : '';
+      return `<tr>
+        <td>${p.perfume}</td><td>${p.size}</td>
+        <td ${stockColor}>${p.stock} und.</td>
+        <td>${fmt(p.cost_per_unit||0)}</td>
+        <td class="amount pos">${fmt(p.sale_price||0)}</td>
+        <td>${margen}</td>
+        <td style="display:flex;gap:4px">
+          <button class="del-btn" title="Quitar 1" onclick="adjustStock('${p.id}',${p.stock},-1)">−</button>
+          <button class="del-btn" title="Agregar 1" onclick="adjustStock('${p.id}',${p.stock},1)" style="color:var(--green)">+</button>
+          <button class="del-btn" onclick="deleteInventory('${p.id}')">🗑</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
   </table>`;
 }
 
-async function saveShipping() {
-  const perfume = document.getElementById('ship-perfume').value.trim();
-  const talla   = document.getElementById('ship-talla').value;
-  const units   = document.getElementById('ship-units').value;
-  const extraNotes = document.getElementById('ship-notes').value;
-  const notesStr = [perfume ? `${perfume} | ${talla} | ${units} und.` : '', extraNotes].filter(Boolean).join(' — ');
-  const body = {
-    carrier: document.getElementById('ship-carrier').value,
-    destination_city: document.getElementById('ship-city').value,
-    cost: +document.getElementById('ship-cost').value,
-    date: document.getElementById('ship-date').value,
-    notes: notesStr
-  };
-  if (!body.cost) { showToast('El costo es requerido'); return; }
-  const { error } = await db.from('shipping_costs').insert(body);
+async function saveInventory() {
+  const body = { perfume: document.getElementById('inv-name').value.trim(), size: document.getElementById('inv-size').value, stock: +document.getElementById('inv-stock').value, cost_per_unit: +document.getElementById('inv-cost').value, sale_price: +document.getElementById('inv-price').value };
+  if (!body.perfume) { showToast('Ingresa el nombre del perfume'); return; }
+  const { error } = await db.from('inventory').insert(body);
   if (error) { showToast('Error: ' + error.message); return; }
-  closeModal(); summaryData = null;
-  document.getElementById('ship-perfume').value = '';
-  document.getElementById('ship-units').value = '1';
-  document.getElementById('ship-carrier').value = '';
-  document.getElementById('ship-city').value = '';
-  document.getElementById('ship-cost').value = '';
-  document.getElementById('ship-notes').value = '';
-  showToast('Envío guardado ✓');
-  loadShipping();
+  closeModal();
+  document.getElementById('inv-name').value = '';
+  document.getElementById('inv-stock').value = '1';
+  document.getElementById('inv-cost').value = '';
+  document.getElementById('inv-price').value = '';
+  showToast('Producto agregado ✓');
+  loadInventory();
 }
 
-async function deleteShipping(id) {
-  if (!confirm('¿Eliminar este envío?')) return;
-  await db.from('shipping_costs').delete().eq('id', id);
-  summaryData = null; loadShipping(); showToast('Eliminado');
+async function adjustStock(id, current, delta) {
+  const newStock = Math.max(0, current + delta);
+  await db.from('inventory').update({ stock: newStock }).eq('id', id);
+  loadInventory();
+}
+
+async function deleteInventory(id) {
+  if (!confirm('¿Eliminar este producto del inventario?')) return;
+  await db.from('inventory').delete().eq('id', id);
+  loadInventory(); showToast('Eliminado');
 }
 
 // ── Init ──────────────────────────────────────────────────────
